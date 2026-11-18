@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Alver-Lin · spider reading</title>
+  <meta name="description" content="A literal spider crawls Alver-Lin's profile paper." />
+  <style>
+    :root {
+      --ink: #1d2433;
+      --muted: #6b7280;
+      --paper: #fffdf8;
+      --paper-edge: #e6dcc8;
+      --desk: #0f1a2e;
+      --accent: #f5c542;
+      --silk: #c4b5fd;
+      --hl: #ffe566;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; height: 100%;
+      background:
+        linear-gradient(135deg, #1a2740 0%, #0f1a2e 55%, #152238 100%);
+      color: #c7d2fe;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
+      overflow: hidden;
+    }
+    body::before {
+      content: "";
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(rgba(42,61,92,.35) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(42,61,92,.35) 1px, transparent 1px);
+      background-size: 28px 28px;
+      pointer-events: none;
+    }
+    header {
+      position: relative; z-index: 2;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 22px; gap: 12px; flex-wrap: wrap;
+    }
+    header h1 {
+      margin: 0; font-size: 14px; font-weight: 600;
+      letter-spacing: 0.02em;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    header a { color: #a5b4fc; text-decoration: none; font-size: 13px; }
+    header a:hover { text-decoration: underline; }
+    .stage {
+      position: relative; z-index: 1;
+      width: min(920px, calc(100vw - 32px));
+      height: min(640px, calc(100vh - 100px));
+      margin: 8px auto 0;
+    }
+    canvas {
+      width: 100%; height: 100%;
+      display: block;
+      border-radius: 16px;
+      box-shadow: 0 24px 80px rgba(0,0,0,.45);
+      background: transparent;
+      cursor: crosshair;
+    }
+    .hint {
+      position: relative; z-index: 2;
+      text-align: center; margin-top: 10px;
+      font-size: 12px; color: #9aa7bd;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🕷️ spider · reading Alver-Lin</h1>
+    <div>
+      <a href="https://github.com/Alver-Lin">GitHub</a>
+      ·
+      <a href="https://github.com/lulu38m/spider-crawler">inspired by spider-crawler</a>
+    </div>
+  </header>
+  <div class="stage"><canvas id="c"></canvas></div>
+  <p class="hint">click anywhere on the paper to lure the spider · silk marks what it has read</p>
+  <script>
+  (() => {
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    const DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+    const LINES = [
+      'Alver-Lin builds tools that make AI coding workflows measurable:',
+      'token dashboards, agent evaluation guides, and database comparison',
+      'utilities for migration confidence. Current focus includes seeUtoken',
+      'and AgenttestGuide — practical systems for observing LLM spend and',
+      'testing agent behaviour without theatre. Interests span test',
+      'development, artificial intelligence, open source tooling, and AI',
+      'agent evaluation. Open to discussing how teams score agent quality.',
+      'Languages: zh_CN / en_US. Stack: Python, FastAPI, automation, and',
+      'whatever makes the next verification loop shorter.',
+    ];
+    const KEYWORDS = ['agents', 'testing', 'python', 'evaluation', 'seeUtoken'];
+
+    let W = 0, H = 0;
+    let paper = { x: 0, y: 0, w: 0, h: 0 };
+    let words = [];
+    let highlights = [];
+    let silk = [];
+    let target = null;
+    let progress = 0;
+
+    const spider = {
+      x: 0, y: 0, angle: 0,
+      legs: Array.from({ length: 8 }, (_, i) => ({
+        side: i < 4 ? -1 : 1,
+        idx: i % 4,
+        planted: true,
+        fx: 0, fy: 0,
+        phase: i % 2,
+      })),
+    };
+
+    function resize() {
+      const rect = canvas.getBoundingClientRect();
+      W = Math.floor(rect.width);
+      H = Math.floor(rect.height);
+      canvas.width = Math.floor(W * DPR);
+      canvas.height = Math.floor(H * DPR);
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      layout();
+    }
+
+    function layout() {
+      paper = {
+        x: W * 0.08,
+        y: H * 0.1,
+        w: W * 0.84,
+        h: H * 0.8,
+      };
+      words = [];
+      const left = paper.x + paper.w * 0.1;
+      const maxW = paper.w * 0.8;
+      let y = paper.y + 150;
+      ctx.font = `${Math.max(13, W * 0.015)}px "Iowan Old Style", Palatino, Georgia, serif`;
+      for (const line of LINES) {
+        const parts = line.split(/(\s+)/);
+        let x = left;
+        for (const part of parts) {
+          if (!part.trim()) { x += ctx.measureText(part).width; continue; }
+          const ww = ctx.measureText(part).width;
+          if (x + ww > left + maxW) { x = left; y += 23; }
+          words.push({ text: part, x, y, w: ww, read: false });
+          x += ww + ctx.measureText(' ').width;
+        }
+        y += 23;
+      }
+      // default crawl: first word
+      const first = words[0];
+      spider.x = first ? first.x : paper.x + 80;
+      spider.y = first ? first.y - 6 : paper.y + 180;
+      for (const leg of spider.legs) plantLeg(leg, true);
+      if (!target && words.length) aimAt(words[Math.min(12, words.length - 1)]);
+    }
+
+    function plantLeg(leg, snap) {
+      const spread = 18 + leg.idx * 5;
+      const along = -8 + leg.idx * 7;
+      const lx = spider.x + Math.cos(spider.angle) * along - Math.sin(spider.angle) * spread * leg.side;
+      const ly = spider.y + Math.sin(spider.angle) * along + Math.cos(spider.angle) * spread * leg.side;
+      if (snap) { leg.fx = lx; leg.fy = ly; }
+      return { lx, ly };
+    }
+
+    function aimAt(word) {
+      target = { x: word.x + word.w / 2, y: word.y - 4, word };
+    }
+
+    function nearestUnread(fromX, fromY) {
+      let best = null, bestD = Infinity;
+      for (const w of words) {
+        if (w.read) continue;
+        const dx = w.x - fromX, dy = w.y - fromY;
+        const d = dx * dx + dy * dy;
+        if (d < bestD) { bestD = d; best = w; }
+      }
+      return best;
+    }
+
+    function update(dt) {
+      if (!target) {
+        const n = nearestUnread(spider.x, spider.y);
+        if (n) aimAt(n);
+      }
+      if (target) {
+        const dx = target.x - spider.x;
+        const dy = target.y - spider.y;
+        const dist = Math.hypot(dx, dy) || 1;
+        const speed = 95;
+        const step = Math.min(dist, speed * dt);
+        spider.x += (dx / dist) * step;
+        spider.y += (dy / dist) * step;
+        spider.angle = Math.atan2(dy, dx);
+        silk.push({ x: spider.x, y: spider.y, t: 1 });
+        if (silk.length > 500) silk.shift();
+
+        if (dist < 8) {
+          if (target.word && !target.word.read) {
+            target.word.read = true;
+            highlights.push({
+              x: target.word.x - 2,
+              y: target.word.y - 12,
+              w: target.word.w + 4,
+              h: 16,
+              a: 0,
+            });
+            progress = words.filter(w => w.read).length / words.length;
+          }
+          const next = nearestUnread(spider.x, spider.y);
+          target = null;
+          if (next) aimAt(next);
+        }
+      }
+
+      // tetrapod gait
+      for (const leg of spider.legs) {
+        const ideal = plantLeg(leg, false);
+        const stretch = Math.hypot(leg.fx - ideal.lx, leg.fy - ideal.ly);
+        const group = (leg.side < 0 ? leg.idx : leg.idx + 1) % 2;
+        const timeGroup = Math.floor(performance.now() / 140) % 2;
+        if (stretch > 16 && group === timeGroup) {
+          leg.fx = ideal.lx;
+          leg.fy = ideal.ly;
+        }
+      }
+
+      for (const h of highlights) h.a = Math.min(0.55, h.a + dt * 1.5);
+      for (const s of silk) s.t *= 0.997;
+    }
+
+    function drawDesk() {
+      const g = ctx.createLinearGradient(0, 0, W, H);
+      g.addColorStop(0, '#1a2740');
+      g.addColorStop(0.55, '#0f1a2e');
+      g.addColorStop(1, '#152238');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+      ctx.strokeStyle = 'rgba(42,61,92,0.35)';
+      ctx.lineWidth = 1;
+      for (let x = 0; x < W; x += 28) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+      for (let y = 0; y < H; y += 28) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+      // orb web
+      ctx.save();
+      ctx.translate(W * 0.88, H * 0.14);
+      ctx.strokeStyle = 'rgba(167,139,250,0.45)';
+      ctx.lineWidth = 1;
+      for (const r of [54, 38, 22]) { ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.stroke(); }
+      for (let i = 0; i < 4; i++) {
+        const a = (i * Math.PI) / 4;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(a) * 54, Math.sin(a) * 54);
+        ctx.lineTo(Math.cos(a + Math.PI) * 54, Math.sin(a + Math.PI) * 54);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function drawPaper() {
+      ctx.save();
+      ctx.shadowColor = 'rgba(0,0,0,0.35)';
+      ctx.shadowBlur = 28;
+      ctx.shadowOffsetY = 12;
+      const pg = ctx.createLinearGradient(0, paper.y, 0, paper.y + paper.h);
+      pg.addColorStop(0, '#fffdf8');
+      pg.addColorStop(1, '#f4efe6');
+      ctx.fillStyle = pg;
+      roundRect(paper.x, paper.y, paper.w, paper.h, 4);
+      ctx.fill();
+      ctx.shadowColor = 'transparent';
+      ctx.strokeStyle = '#e6dcc8';
+      ctx.stroke();
+      // margin line
+      ctx.strokeStyle = 'rgba(240,196,196,0.75)';
+      ctx.beginPath();
+      ctx.moveTo(paper.x + 48, paper.y);
+      ctx.lineTo(paper.x + 48, paper.y + paper.h);
+      ctx.stroke();
+
+      ctx.fillStyle = '#1d2433';
+      ctx.font = `700 ${Math.max(18, W * 0.024)}px "Iowan Old Style", Palatino, Georgia, serif`;
+      ctx.textAlign = 'center';
+      ctx.fillText('On Reading Habits of a Software Engineer', paper.x + paper.w / 2, paper.y + 42);
+      ctx.fillStyle = '#6b7280';
+      ctx.font = `${Math.max(11, W * 0.013)}px ui-sans-serif, system-ui, sans-serif`;
+      ctx.fillText('Alver-Lin · Capinfo · Beijing · 2026', paper.x + paper.w / 2, paper.y + 66);
+      ctx.fillText('Test Development · AI Agents · Open Source Tools', paper.x + paper.w / 2, paper.y + 86);
+      ctx.strokeStyle = '#d8d0c2';
+      ctx.beginPath();
+      ctx.moveTo(paper.x + 90, paper.y + 100);
+      ctx.lineTo(paper.x + paper.w - 90, paper.y + 100);
+      ctx.stroke();
+
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#1d2433';
+      ctx.font = `700 ${Math.max(12, W * 0.014)}px "Iowan Old Style", Palatino, Georgia, serif`;
+      ctx.fillText('Abstract', paper.x + 70, paper.y + 128);
+
+      // highlights
+      for (const h of highlights) {
+        ctx.fillStyle = `rgba(255,229,102,${h.a})`;
+        ctx.fillRect(h.x, h.y, h.w, h.h);
+      }
+
+      ctx.fillStyle = '#2a3142';
+      ctx.font = `${Math.max(13, W * 0.015)}px "Iowan Old Style", Palatino, Georgia, serif`;
+      for (const w of words) ctx.fillText(w.text, w.x, w.y);
+
+      // keywords
+      const ky = paper.y + paper.h - 90;
+      ctx.fillStyle = '#1d2433';
+      ctx.font = `700 ${Math.max(12, W * 0.014)}px "Iowan Old Style", Palatino, Georgia, serif`;
+      ctx.fillText('Keywords', paper.x + 70, ky);
+      let kx = paper.x + 70;
+      ctx.font = `${Math.max(11, W * 0.013)}px ui-monospace, Menlo, Consolas, monospace`;
+      for (const k of KEYWORDS) {
+        const tw = ctx.measureText(k).width + 24;
+        ctx.fillStyle = '#efe8ff';
+        roundRect(kx, ky + 12, tw, 22, 11); ctx.fill();
+        ctx.fillStyle = '#5b21b6';
+        ctx.fillText(k, kx + 12, ky + 27);
+        kx += tw + 10;
+      }
+
+      ctx.fillStyle = '#8a8172';
+      ctx.font = `${Math.max(10, W * 0.012)}px ui-monospace, Menlo, Consolas, monospace`;
+      const caught = words.filter(w => w.read).length;
+      ctx.fillText(`Page 1 of 1 · spider read ${caught}/${words.length} words · silk summary pending`, paper.x + 70, paper.y + paper.h - 36);
+      ctx.fillStyle = '#ebe4d8';
+      roundRect(paper.x + 70, paper.y + paper.h - 24, paper.w - 140, 4, 2); ctx.fill();
+      ctx.fillStyle = '#f5c542';
+      roundRect(paper.x + 70, paper.y + paper.h - 24, (paper.w - 140) * progress, 4, 2); ctx.fill();
+      ctx.restore();
+    }
+
+    function roundRect(x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    function drawSilk() {
+      if (silk.length < 2) return;
+      ctx.beginPath();
+      ctx.strokeStyle = 'rgba(196,181,253,0.75)';
+      ctx.lineWidth = 1.4;
+      ctx.lineJoin = 'round';
+      ctx.moveTo(silk[0].x, silk[0].y);
+      for (let i = 1; i < silk.length; i++) ctx.lineTo(silk[i].x, silk[i].y);
+      ctx.stroke();
+    }
+
+    function drawSpider() {
+      const { x, y, angle } = spider;
+      ctx.save();
+      ctx.translate(x, y);
+      // legs
+      for (const leg of spider.legs) {
+        const hipX = Math.cos(angle) * (-2 + leg.idx) - Math.sin(angle) * (5 * leg.side);
+        const hipY = Math.sin(angle) * (-2 + leg.idx) + Math.cos(angle) * (5 * leg.side);
+        const fx = leg.fx - x;
+        const fy = leg.fy - y;
+        // simple knee
+        const mx = (hipX + fx) / 2 - Math.sin(angle) * 8 * leg.side;
+        const my = (hipY + fy) / 2 + Math.cos(angle) * 8 * leg.side;
+        ctx.beginPath();
+        ctx.moveTo(hipX, hipY);
+        ctx.quadraticCurveTo(mx, my, fx, fy);
+        ctx.strokeStyle = '#111827';
+        ctx.lineWidth = 1.8;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+      }
+      // body
+      ctx.rotate(angle);
+      ctx.fillStyle = '#0f172a';
+      ctx.beginPath(); ctx.ellipse(0, 0, 8, 5.6, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#1f2937';
+      ctx.beginPath(); ctx.ellipse(9, -0.5, 4.4, 3.6, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fbbf24';
+      ctx.beginPath(); ctx.arc(11.5, -2, 1.2, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#f59e0b';
+      ctx.beginPath(); ctx.arc(11.5, 0.6, 1, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+
+    canvas.addEventListener('pointerdown', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const px = e.clientX - rect.left;
+      const py = e.clientY - rect.top;
+      // snap to nearest word
+      let best = null, bestD = Infinity;
+      for (const w of words) {
+        const cx = w.x + w.w / 2, cy = w.y - 4;
+        const d = (cx - px) ** 2 + (cy - py) ** 2;
+        if (d < bestD) { bestD = d; best = w; }
+      }
+      if (best) aimAt(best);
+      else target = { x: px, y: py, word: null };
+    });
+
+    let last = performance.now();
+    function frame(now) {
+      const dt = Math.min(0.033, (now - last) / 1000);
+      last = now;
+      update(dt);
+      drawDesk();
+      drawPaper();
+      drawSilk();
+      drawSpider();
+      requestAnimationFrame(frame);
+    }
+
+    window.addEventListener('resize', resize);
+    resize();
+    requestAnimationFrame(frame);
+  })();
+  </script>
+</body>
+</html>
