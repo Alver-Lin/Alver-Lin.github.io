@@ -786,6 +786,41 @@
   var W = 0;
   var H = 0;
   var zoom = 1.65;
+  var DARK = {
+    desk: "#0d1117",
+    card: "#0d1117",
+    border: "#30363d",
+    muted: "#8b949e",
+    code: "#c9d1d9",
+    comment: "#8b949e",
+    gutter: "#768390",
+    gutterLine: "#21262d",
+    title: "#58a6ff",
+    shadow: 0.85
+  };
+  var LIGHT = {
+    desk: "#f6f8fa",
+    card: "#ffffff",
+    border: "#d0d7de",
+    muted: "#57606a",
+    code: "#24292f",
+    comment: "#6e7781",
+    gutter: "#8c959f",
+    gutterLine: "#d8dee4",
+    title: "#0969da",
+    shadow: 0.35
+  };
+  var mq = matchMedia("(prefers-color-scheme: dark)");
+  var theme = mq.matches ? DARK : LIGHT;
+  var syncTheme = () => {
+    theme = mq.matches ? DARK : LIGHT;
+    document.documentElement.style.colorScheme = mq.matches ? "dark" : "light";
+    document.body.style.background = theme.desk;
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute("content", theme.desk);
+  };
+  mq.addEventListener("change", syncTheme);
+  syncTheme();
   var resize = () => {
     W = canvas.clientWidth;
     H = canvas.clientHeight;
@@ -812,36 +847,40 @@
     mouse = null;
   });
   var PROFILE_LINES = [
-    { text: "#!/usr/bin/python", color: "#8b949e" },
-    { text: "# -*- coding: utf-8 -*-", color: "#8b949e" },
-    { text: "" },
-    { text: "class SoftwareEngineer:" },
-    { text: "    def __init__(self):" },
-    { text: '        self.name = "Alver-Lin"' },
-    { text: '        self.role = "Software Engineer"' },
-    { text: '        self.language_spoken = ["zh_CN", "en_US"]' },
-    { text: "" },
-    { text: '        self.current_project = "seeUtoken"' },
-    { text: '        self.currently_learning = "agenttest"' },
-    { text: "        self.interests = [" },
-    { text: '            "Test Development",' },
-    { text: '            "Artificial Intelligence",' },
-    { text: '            "Open Source Tools",' },
-    { text: '            "AI Agent Evaluation",' },
-    { text: "        ]" },
-    { text: '        self.open_to_discuss = "AI Agent Evaluation"' },
-    { text: "" },
-    { text: "    def say_hi(self):" },
-    { text: '        print("Thanks for dropping by!")' },
-    { text: '        print("Hope you find some of my work interesting.")' },
-    { text: "" },
-    { text: "    def now_doing(self):" },
-    { text: '        print(f"Working on: {self.current_project}")' },
-    { text: '        print(f"Learning: {self.currently_learning}")' }
+    "#!/usr/bin/python",
+    "# -*- coding: utf-8 -*-",
+    "",
+    "class SoftwareEngineer:",
+    "    def __init__(self):",
+    '        self.name = "Alver-Lin"',
+    '        self.role = "Software Engineer"',
+    '        self.language_spoken = ["zh_CN", "en_US"]',
+    "",
+    '        self.current_project = "seeUtoken"',
+    '        self.currently_learning = "agenttest"',
+    "        self.interests = [",
+    '            "Test Development",',
+    '            "Artificial Intelligence",',
+    '            "Open Source Tools",',
+    '            "AI Agent Evaluation",',
+    "        ]",
+    '        self.open_to_discuss = "AI Agent Evaluation"',
+    "",
+    "    def say_hi(self):",
+    '        print("Thanks for dropping by!")',
+    '        print("Hope you find some of my work interesting.")',
+    "",
+    "    def now_doing(self):",
+    '        print(f"Working on: {self.current_project}")',
+    '        print(f"Learning: {self.currently_learning}")'
   ];
+  function isComment(line) {
+    return line.trimStart().startsWith("#");
+  }
   function drawCard() {
+    const t = theme;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.fillStyle = "#0d1117";
+    ctx.fillStyle = t.desk;
     ctx.fillRect(0, 0, W, H);
     const cardW = Math.min(920, W - 48);
     const cardH = Math.min(980, H - 48);
@@ -855,15 +894,15 @@
     ctx.arcTo(cardX, cardY + cardH, cardX, cardY, r);
     ctx.arcTo(cardX, cardY, cardX + cardW, cardY, r);
     ctx.closePath();
-    ctx.fillStyle = "#0d1117";
+    ctx.fillStyle = t.card;
     ctx.fill();
-    ctx.strokeStyle = "#30363d";
+    ctx.strokeStyle = t.border;
     ctx.lineWidth = 1;
     ctx.stroke();
     ctx.beginPath();
     ctx.moveTo(cardX, cardY + 45);
     ctx.lineTo(cardX + cardW, cardY + 45);
-    ctx.strokeStyle = "#30363d";
+    ctx.strokeStyle = t.border;
     ctx.stroke();
     const dots = ["#ff6058", "#febc2e", "#28c840"];
     dots.forEach((c, i) => {
@@ -872,37 +911,36 @@
       ctx.fillStyle = c;
       ctx.fill();
     });
-    ctx.fillStyle = "#8b949e";
+    ctx.fillStyle = t.muted;
     ctx.font = "12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
     ctx.textAlign = "center";
     ctx.fillText("alver-lin \u2014 profile.py", cardX + cardW / 2, cardY + 28);
     ctx.textAlign = "left";
-    ctx.fillStyle = "#8b949e";
+    ctx.fillStyle = t.muted;
     ctx.font = "14px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
     ctx.fillText("$ cat profile.py", cardX + 48, cardY + 84);
-    ctx.fillStyle = "#58a6ff";
+    ctx.fillStyle = t.title;
     ctx.font = "700 36px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
     ctx.fillText("> Hello, I am Alver-Lin", cardX + 47, cardY + 140);
     ctx.beginPath();
     ctx.moveTo(cardX + 65, cardY + 170);
     ctx.lineTo(cardX + 65, cardY + cardH - 24);
-    ctx.strokeStyle = "#21262d";
+    ctx.strokeStyle = t.gutterLine;
     ctx.stroke();
     const lineH = 22;
     const startY = cardY + 190;
     PROFILE_LINES.forEach((line, i) => {
       const y = startY + i * lineH;
       if (y > cardY + cardH - 30) return;
-      ctx.fillStyle = "#768390";
+      ctx.fillStyle = t.gutter;
       ctx.font = "12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
       ctx.textAlign = "right";
       ctx.fillText(String(i + 1), cardX + 51, y);
       ctx.textAlign = "left";
-      ctx.fillStyle = line.color || "#c9d1d9";
+      ctx.fillStyle = isComment(line) ? t.comment : t.code;
       ctx.font = "15px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
-      ctx.fillText(line.text, cardX + 78, y);
+      ctx.fillText(line, cardX + 78, y);
     });
-    return { cardX, cardY, cardW, cardH };
   }
   function loop(now) {
     const last = loop._last ?? now;
@@ -919,7 +957,7 @@
       dpr * W / 2,
       dpr * H / 2
     );
-    drawSpider(ctx, spider, { ...DEFAULT_DRAW, px: zoom * dpr, shadow: 0.85 });
+    drawSpider(ctx, spider, { ...DEFAULT_DRAW, px: zoom * dpr, shadow: theme.shadow });
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);

@@ -5,20 +5,62 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Alver-Lin · spider</title>
   <meta name="description" content="Blueprint spider from spider-crawler — follows your pointer on Alver-Lin's profile card." />
+  <meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#f6f8fa" media="(prefers-color-scheme: light)" />
+  <meta name="color-scheme" content="light dark" />
   <style>
-    html, body { margin: 0; height: 100%; background: #0d1117; overflow: hidden; }
-    #stage { width: 100vw; height: 100vh; display: block; cursor: crosshair; touch-action: none; }
-    .hint {
-      position: fixed; left: 0; right: 0; bottom: 14px; z-index: 2;
-      text-align: center; pointer-events: none;
-      color: #8b949e; font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    :root {
+      color-scheme: light dark;
+      --desk: #f6f8fa;
+      --muted: #57606a;
+      --link: #0969da;
     }
-    .credit {
-      position: fixed; top: 12px; right: 16px; z-index: 2;
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --desk: #0d1117;
+        --muted: #8b949e;
+        --link: #a5b4fc;
+      }
+    }
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: var(--desk);
+      overflow: hidden;
+    }
+    #stage {
+      width: 100vw;
+      height: 100vh;
+      display: block;
+      cursor: crosshair;
+      touch-action: none;
+    }
+    .hint {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 14px;
+      z-index: 2;
+      text-align: center;
+      pointer-events: none;
+      color: var(--muted);
       font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     }
-    .credit a { color: #a5b4fc; text-decoration: none; }
-    .credit a:hover { text-decoration: underline; }
+    .credit {
+      position: fixed;
+      top: 12px;
+      right: 16px;
+      z-index: 2;
+      font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      color: var(--muted);
+    }
+    .credit a {
+      color: var(--link);
+      text-decoration: none;
+    }
+    .credit a:hover {
+      text-decoration: underline;
+    }
   </style>
 </head>
 <body>
